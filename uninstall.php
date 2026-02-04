@@ -18,6 +18,7 @@ $tables = [
     $wpdb->prefix . 'sa_paths',
     $wpdb->prefix . 'sa_referrers',
     $wpdb->prefix . 'sa_agents',
+    $wpdb->prefix . 'sa_campaigns',
 ];
 
 foreach ( $tables as $table ) {

@@ -42,23 +42,37 @@ class SA_Database {
 			UNIQUE KEY agent_hash (agent_hash)
 		) $charset_collate;";
 
-		// 4. Main Pageviews Table (Fact Table)
+		// 4. Campaigns Lookup Table (UTM parameters)
+		$sql_campaigns = "CREATE TABLE {$wpdb->prefix}sa_campaigns (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			campaign_hash CHAR(32) NOT NULL,
+			utm_source VARCHAR(100) DEFAULT NULL,
+			utm_medium VARCHAR(100) DEFAULT NULL,
+			utm_campaign VARCHAR(100) DEFAULT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY campaign_hash (campaign_hash)
+		) $charset_collate;";
+
+		// 5. Main Pageviews Table (Fact Table)
 		$sql_pageviews = "CREATE TABLE {$wpdb->prefix}sa_pageviews (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			recorded_at DATETIME NOT NULL,
 			path_id BIGINT UNSIGNED NOT NULL,
 			ref_id BIGINT UNSIGNED DEFAULT NULL,
 			agent_id BIGINT UNSIGNED NOT NULL,
+			campaign_id BIGINT UNSIGNED DEFAULT NULL,
 			country_code CHAR(2) DEFAULT NULL,
 			device_type TINYINT NOT NULL,
 			is_unique TINYINT(1) NOT NULL DEFAULT 1,
 			PRIMARY KEY (id),
-			KEY idx_recorded_at (recorded_at)
+			KEY idx_recorded_at (recorded_at),
+			KEY idx_campaign (campaign_id)
 		) $charset_collate;";
 
 		dbDelta( $sql_paths );
 		dbDelta( $sql_referrers );
 		dbDelta( $sql_agents );
+		dbDelta( $sql_campaigns );
 		dbDelta( $sql_pageviews );
 	}
 
@@ -71,7 +85,7 @@ class SA_Database {
 		// 1. Normalize strings into IDs
 		$path_id  = self::get_or_create_id( 'paths', $data['path'] );
 		$ref_id   = ! empty( $data['referrer'] ) ? self::get_or_create_id( 'referrers', $data['referrer'] ) : null;
-		
+
 		// 2. Parse User Agent for Device Type and Agent Name
 		$ua_info  = self::parse_user_agent( $data['user_agent'] );
 		$agent_id = self::get_or_create_id( 'agents', $ua_info['name'] );
@@ -79,7 +93,17 @@ class SA_Database {
 		// 3. Get Country Code (via SA_Geo)
 		$country_code = SA_Geo::get_country_code( $data['ip'] );
 
-		// 4. Final Insert (handle NULL ref_id properly)
+		// 4. Get Campaign ID if UTM params present
+		$campaign_id = null;
+		if ( ! empty( $data['utm_source'] ) || ! empty( $data['utm_medium'] ) || ! empty( $data['utm_campaign'] ) ) {
+			$campaign_id = self::get_or_create_campaign(
+				$data['utm_source'] ?? '',
+				$data['utm_medium'] ?? '',
+				$data['utm_campaign'] ?? ''
+			);
+		}
+
+		// 5. Final Insert
 		$insert_data = [
 			'recorded_at'  => $data['recorded_at'],
 			'path_id'      => $path_id,
@@ -90,9 +114,13 @@ class SA_Database {
 		];
 		$format = [ '%s', '%d', '%d', '%s', '%d', '%d' ];
 
-		// Only include ref_id if it's not null
 		if ( $ref_id !== null ) {
 			$insert_data['ref_id'] = $ref_id;
+			$format[] = '%d';
+		}
+
+		if ( $campaign_id !== null ) {
+			$insert_data['campaign_id'] = $campaign_id;
 			$format[] = '%d';
 		}
 
@@ -101,6 +129,29 @@ class SA_Database {
 			$insert_data,
 			$format
 		);
+	}
+
+	/**
+	 * Get or create a campaign record from UTM parameters.
+	 */
+	private static function get_or_create_campaign( $source, $medium, $campaign ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'sa_campaigns';
+		$hash  = md5( $source . '|' . $medium . '|' . $campaign );
+
+		$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE campaign_hash = %s", $hash ) );
+
+		if ( ! $id ) {
+			$wpdb->insert( $table, [
+				'campaign_hash' => $hash,
+				'utm_source'    => substr( $source, 0, 100 ),
+				'utm_medium'    => substr( $medium, 0, 100 ),
+				'utm_campaign'  => substr( $campaign, 0, 100 ),
+			] );
+			$id = $wpdb->insert_id;
+		}
+
+		return $id;
 	}
 
 	/**
@@ -245,6 +296,59 @@ class SA_Database {
 				LIMIT %d",
 				$date_from,
 				$limit
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Fetches campaign statistics for the admin UI.
+	 */
+	public static function get_campaign_stats( $days = 7, $limit = 20 ) {
+		global $wpdb;
+		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					c.utm_source,
+					c.utm_medium,
+					c.utm_campaign,
+					COUNT(pv.id) as views,
+					SUM(pv.is_unique) as visitors
+				FROM {$wpdb->prefix}sa_pageviews pv
+				JOIN {$wpdb->prefix}sa_campaigns c ON pv.campaign_id = c.id
+				WHERE pv.recorded_at >= %s
+				  AND pv.device_type NOT IN (4, 5)
+				GROUP BY pv.campaign_id
+				ORDER BY visitors DESC
+				LIMIT %d",
+				$date_from,
+				$limit
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Get daily stats for charts.
+	 */
+	public static function get_daily_stats( $days = 7 ) {
+		global $wpdb;
+		$date_from = gmdate( 'Y-m-d', strtotime( "-$days days" ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					DATE(recorded_at) as date,
+					COUNT(id) as views,
+					SUM(is_unique) as visitors
+				FROM {$wpdb->prefix}sa_pageviews
+				WHERE DATE(recorded_at) >= %s
+				  AND device_type NOT IN (4, 5)
+				GROUP BY DATE(recorded_at)
+				ORDER BY date ASC",
+				$date_from
 			),
 			ARRAY_A
 		);

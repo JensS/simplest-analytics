@@ -44,15 +44,22 @@ class SA_REST_API {
         // Extract parameters sent from tracker.js.
         $params = $request->get_json_params();
         $ua = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $full_path = $params['path'] ?? '/';
+
+        // Extract UTM params from the path before sanitizing
+        $utm = self::extract_utm_from_path($full_path);
 
         // Process data similarly to the server-side tracker.
         $data = [
-            'path'         => self::sanitize_path($params['path'] ?? '/'),
+            'path'         => self::sanitize_path($full_path),
             'referrer'     => self::get_referrer_domain($params['ref'] ?? ''),
             'user_agent'   => $ua,
             'ip'           => self::get_anonymized_ip(),
             'is_unique'    => self::check_is_unique($ua),
             'recorded_at'  => current_time('mysql'),
+            'utm_source'   => $utm['source'],
+            'utm_medium'   => $utm['medium'],
+            'utm_campaign' => $utm['campaign'],
         ];
 
         $inserted = SA_Database::insert_pageview($data);
@@ -94,6 +101,27 @@ class SA_REST_API {
         }
 
         return '';
+    }
+
+    /**
+     * Extract UTM parameters from a path with query string.
+     */
+    private static function extract_utm_from_path($path) {
+        $utm = [
+            'source'   => '',
+            'medium'   => '',
+            'campaign' => '',
+        ];
+
+        $query_string = wp_parse_url($path, PHP_URL_QUERY);
+        if ($query_string) {
+            parse_str($query_string, $query_params);
+            $utm['source']   = isset($query_params['utm_source']) ? sanitize_text_field($query_params['utm_source']) : '';
+            $utm['medium']   = isset($query_params['utm_medium']) ? sanitize_text_field($query_params['utm_medium']) : '';
+            $utm['campaign'] = isset($query_params['utm_campaign']) ? sanitize_text_field($query_params['utm_campaign']) : '';
+        }
+
+        return $utm;
     }
 
     /**

@@ -58,15 +58,30 @@ class SA_Tracker {
 	 * Collects and anonymizes data for storage.
 	 */
 	private static function collect_request_data() {
-		$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-		
+		$ua  = $_SERVER['HTTP_USER_AGENT'] ?? '';
+		$utm = self::get_utm_params();
+
 		return [
 			'path'         => self::get_clean_path(),
 			'referrer'     => self::get_referrer_domain(),
 			'user_agent'   => $ua,
-			'ip'           => self::get_anonymized_ip(), // IP is truncated here.
+			'ip'           => self::get_anonymized_ip(),
 			'is_unique'    => self::check_is_unique( $ua ),
 			'recorded_at'  => current_time( 'mysql' ),
+			'utm_source'   => $utm['source'],
+			'utm_medium'   => $utm['medium'],
+			'utm_campaign' => $utm['campaign'],
+		];
+	}
+
+	/**
+	 * Extract UTM parameters from query string.
+	 */
+	private static function get_utm_params() {
+		return [
+			'source'   => isset( $_GET['utm_source'] ) ? sanitize_text_field( $_GET['utm_source'] ) : '',
+			'medium'   => isset( $_GET['utm_medium'] ) ? sanitize_text_field( $_GET['utm_medium'] ) : '',
+			'campaign' => isset( $_GET['utm_campaign'] ) ? sanitize_text_field( $_GET['utm_campaign'] ) : '',
 		];
 	}
 
