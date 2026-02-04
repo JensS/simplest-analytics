@@ -1,6 +1,6 @@
 <?php
 /**
- * Simplest Analytics Uninstall
+ * The Simplest Analytics Uninstall
  *
  * Removes all plugin data when the plugin is deleted.
  */

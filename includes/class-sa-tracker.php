@@ -12,10 +12,9 @@ class SA_Tracker {
 	public static function init() {
 		// Hook into template_redirect for primary server-side tracking.
 		add_action( 'template_redirect', [ __CLASS__, 'handle_server_side_tracking' ] );
-		
-		// Inject the JS fallback script in the footer.
-		add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_tracking_assets' ] );
-		add_action( 'wp_footer', [ __CLASS__, 'inject_tracking_status' ], 999 );
+
+		// Enqueue JS fallback in footer (after server-side tracking has run).
+		add_action( 'wp_footer', [ __CLASS__, 'enqueue_tracking_assets' ], 5 );
 	}
 
 	/**
@@ -35,26 +34,23 @@ class SA_Tracker {
 	}
 
 	/**
-	 * Injects a JS variable so the fallback knows if PHP already ran.
-	 */
-	public static function inject_tracking_status() {
-		$status = self::$tracked ? 'true' : 'false';
-		echo '<script>window.sa_tracked = ' . esc_js( $status ) . ';</script>';
-	}
-
-	/**
-	 * Enqueues the tracker.js which pings the REST API if sa_tracked is false.
+	 * Enqueues the tracker.js which pings the REST API only if server-side tracking didn't run.
+	 * This is hooked to wp_footer so it runs AFTER template_redirect (where server tracking happens).
 	 */
 	public static function enqueue_tracking_assets() {
 		if ( is_admin() || self::is_excluded_user() ) {
 			return;
 		}
 
-		wp_enqueue_script( 'sa-tracker', SA_PLUGIN_URL . 'assets/js/tracker.js', [], SA_VERSION, true );
+		// If server-side already tracked this request, don't load JS at all
+		if ( self::$tracked ) {
+			return;
+		}
+
+		wp_enqueue_script( 'sa-tracker', SA_PLUGIN_URL . 'assets/js/tracker.js', [], SA_VERSION, false );
 
 		wp_localize_script( 'sa-tracker', 'sa_params', [
 			'api_url' => get_rest_url( null, 'sa/v1/track' ),
-			'nonce'   => wp_create_nonce( 'wp_rest' ),
 		] );
 	}
 

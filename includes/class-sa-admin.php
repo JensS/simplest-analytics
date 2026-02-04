@@ -17,12 +17,12 @@ class SA_Admin {
     }
 
     /**
-     * Register the main stats page in the Settings menu.
+     * Register the main stats page in the Tools menu.
      */
     public static function add_admin_menu() {
-        add_options_page(
+        add_management_page(
             __( 'The Simplest Analytics', 'the-simplest-analytics' ),
-            __( 'The Simplest Analytics', 'the-simplest-analytics' ),
+            __( 'Simplest Analytics', 'the-simplest-analytics' ),
             'manage_options',
             'the-simplest-analytics',
             [ __CLASS__, 'render_stats_page' ]
@@ -49,13 +49,13 @@ class SA_Admin {
      */
     public static function enqueue_admin_assets( $hook ) {
         // Load only on the stats page or the main dashboard.
-        if ( 'settings_page_the-simplest-analytics' !== $hook && 'index.php' !== $hook ) {
+        if ( 'tools_page_the-simplest-analytics' !== $hook && 'index.php' !== $hook ) {
             return;
         }
 
         wp_enqueue_style( 'sa-admin-css', SA_PLUGIN_URL . 'assets/css/admin.css', [], SA_VERSION );
-        
-        if ( 'settings_page_the-simplest-analytics' === $hook ) {
+
+        if ( 'tools_page_the-simplest-analytics' === $hook ) {
             wp_enqueue_script( 'sa-admin-js', SA_PLUGIN_URL . 'assets/js/admin.js', [ 'jquery' ], SA_VERSION, true );
             wp_localize_script( 'sa-admin-js', 'saAdmin', [
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),

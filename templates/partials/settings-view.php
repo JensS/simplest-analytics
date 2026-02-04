@@ -12,9 +12,6 @@ if (isset($_POST['sa_save_settings']) && check_admin_referer('sa_settings_nonce'
     update_option('sa_strip_query_params', isset($_POST['sa_strip_query_params']));
     update_option('sa_enable_geo', isset($_POST['sa_enable_geo']));
 
-    $excluded_roles = isset($_POST['sa_excluded_roles']) ? array_map('sanitize_key', $_POST['sa_excluded_roles']) : [];
-    update_option('sa_excluded_roles', $excluded_roles);
-
     echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Settings saved.', 'the-simplest-analytics') . '</p></div>';
 }
 
@@ -24,10 +21,7 @@ $retention_days = get_option('sa_retention_days', 365);
 $respect_dnt = get_option('sa_respect_dnt', false);
 $strip_query_params = get_option('sa_strip_query_params', true);
 $enable_geo = get_option('sa_enable_geo', true);
-$excluded_roles = get_option('sa_excluded_roles', ['administrator']);
 $geo_db_updated = get_option('sa_geo_db_updated', '');
-
-$all_roles = wp_roles()->get_names();
 ?>
 
 <form method="post" action="">
@@ -41,6 +35,7 @@ $all_roles = wp_roles()->get_names();
                     <input type="checkbox" name="sa_tracking_enabled" value="1" <?php checked($tracking_enabled); ?>>
                     <?php esc_html_e('Collect analytics data', 'the-simplest-analytics'); ?>
                 </label>
+                <p class="description"><?php esc_html_e('Logged-in users are never tracked.', 'the-simplest-analytics'); ?></p>
             </td>
         </tr>
 
@@ -88,22 +83,6 @@ $all_roles = wp_roles()->get_names();
                         ?>
                     </p>
                 <?php endif; ?>
-            </td>
-        </tr>
-
-        <tr>
-            <th scope="row"><?php esc_html_e('Exclude User Roles', 'the-simplest-analytics'); ?></th>
-            <td>
-                <fieldset>
-                    <?php foreach ($all_roles as $role_key => $role_name) : ?>
-                        <label>
-                            <input type="checkbox" name="sa_excluded_roles[]" value="<?php echo esc_attr($role_key); ?>" <?php checked(in_array($role_key, $excluded_roles, true)); ?>>
-                            <?php echo esc_html($role_name); ?>
-                        </label>
-                        <br>
-                    <?php endforeach; ?>
-                    <p class="description"><?php esc_html_e('Selected roles will not be tracked when logged in.', 'the-simplest-analytics'); ?></p>
-                </fieldset>
             </td>
         </tr>
     </table>
