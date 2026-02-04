@@ -4,7 +4,7 @@ Tags: analytics, privacy, statistics, GDPR, pageviews
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,14 @@ No. The tracking JavaScript is under 1KB and loads asynchronously. Server-side t
 
 == Changelog ==
 
+= 1.2.0 =
+* Added Countries tab with flag emojis and geographic statistics
+* Added Browsers tab with browser name detection and visual charts
+* Added Devices breakdown with percentage visualization
+* Added Campaign tracking with UTM parameter support
+* Improved user agent parsing for accurate browser identification
+* Added horizontal bar charts for visual statistics
+
 = 1.1.0 =
 * Added rate limiting to prevent API abuse
 * Improved memory efficiency for high-traffic sites
@@ -117,6 +125,9 @@ No. The tracking JavaScript is under 1KB and loads asynchronously. Server-side t
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Feature release adding geographic, browser, device, and campaign statistics with visual charts.
 
 = 1.1.0 =
 Recommended update with security improvements and bug fixes for cached page tracking.

@@ -13,7 +13,7 @@
  * Plugin Name:       The Simplest Analytics
  * Plugin URI:        https://github.com/JensS/simplest-analytics
  * Description:       Privacy-first, lightweight, and cache-compatible analytics. No cookies, GDPR compliant, and tracks all bots including AI crawlers.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Jens Sage
@@ -29,7 +29,7 @@ defined('ABSPATH') || exit;
 /**
  * Define Plugin Constants
  */
-define('SA_VERSION', '1.1.0');
+define('SA_VERSION', '1.2.0');
 define('SA_PLUGIN_FILE', __FILE__);
 define('SA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SA_PLUGIN_URL', plugin_dir_url(__FILE__));
