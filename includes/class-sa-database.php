@@ -181,32 +181,76 @@ class SA_Database {
 	 */
 	private static function parse_user_agent( $ua ) {
 		$ua_lower = strtolower( $ua );
-		
+
 		// Search Engines (Type 4)
-		$search_bots = [ 'googlebot', 'bingbot', 'duckduckbot', 'baiduspider', 'yandexbot' ];
-		foreach ( $search_bots as $bot ) {
-			if ( str_contains( $ua_lower, $bot ) ) {
-				return [ 'type' => 4, 'name' => ucfirst( $bot ) ];
+		$search_bots = [
+			'googlebot'    => 'Googlebot',
+			'bingbot'      => 'Bingbot',
+			'duckduckbot'  => 'DuckDuckBot',
+			'baiduspider'  => 'Baiduspider',
+			'yandexbot'    => 'YandexBot',
+			'slurp'        => 'Yahoo Slurp',
+		];
+		foreach ( $search_bots as $key => $name ) {
+			if ( str_contains( $ua_lower, $key ) ) {
+				return [ 'type' => 4, 'name' => $name ];
 			}
 		}
 
 		// AI & Marketing Bots (Type 5)
-		$ai_bots = [ 'gptbot', 'claudebot', 'anthropic-ai', 'perplexitybot', 'semrushbot', 'ahrefsbot' ];
-		foreach ( $ai_bots as $bot ) {
-			if ( str_contains( $ua_lower, $bot ) ) {
-				return [ 'type' => 5, 'name' => ucfirst( $bot ) ];
+		$ai_bots = [
+			'gptbot'        => 'GPTBot',
+			'chatgpt'       => 'ChatGPT',
+			'claudebot'     => 'ClaudeBot',
+			'anthropic-ai'  => 'Anthropic',
+			'perplexitybot' => 'PerplexityBot',
+			'semrushbot'    => 'SEMrushBot',
+			'ahrefsbot'     => 'AhrefsBot',
+			'dotbot'        => 'DotBot',
+			'petalbot'      => 'PetalBot',
+			'bytespider'    => 'Bytespider',
+		];
+		foreach ( $ai_bots as $key => $name ) {
+			if ( str_contains( $ua_lower, $key ) ) {
+				return [ 'type' => 5, 'name' => $name ];
 			}
 		}
 
-		// Device Detection
-		if ( str_contains( $ua_lower, 'mobile' ) || str_contains( $ua_lower, 'android' ) ) {
-			return [ 'type' => 2, 'name' => 'Mobile User' ];
-		}
-		if ( str_contains( $ua_lower, 'tablet' ) || str_contains( $ua_lower, 'ipad' ) ) {
-			return [ 'type' => 3, 'name' => 'Tablet User' ];
+		// Device type detection
+		$device_type = 1; // Desktop default
+		if ( str_contains( $ua_lower, 'mobile' ) || ( str_contains( $ua_lower, 'android' ) && ! str_contains( $ua_lower, 'tablet' ) ) ) {
+			$device_type = 2; // Mobile
+		} elseif ( str_contains( $ua_lower, 'tablet' ) || str_contains( $ua_lower, 'ipad' ) ) {
+			$device_type = 3; // Tablet
 		}
 
-		return [ 'type' => 1, 'name' => 'Desktop User' ]; // Default
+		// Browser detection (order matters - check specific before generic)
+		$browsers = [
+			'edg/'      => 'Edge',
+			'edge/'     => 'Edge',
+			'opr/'      => 'Opera',
+			'opera'     => 'Opera',
+			'chrome'    => 'Chrome',
+			'crios'     => 'Chrome',
+			'safari'    => 'Safari',
+			'firefox'   => 'Firefox',
+			'fxios'     => 'Firefox',
+			'msie'      => 'Internet Explorer',
+			'trident'   => 'Internet Explorer',
+			'samsung'   => 'Samsung Internet',
+			'ucbrowser' => 'UC Browser',
+			'brave'     => 'Brave',
+			'vivaldi'   => 'Vivaldi',
+			'duckduckgo'=> 'DuckDuckGo',
+		];
+
+		foreach ( $browsers as $key => $name ) {
+			if ( str_contains( $ua_lower, $key ) ) {
+				return [ 'type' => $device_type, 'name' => $name ];
+			}
+		}
+
+		return [ 'type' => $device_type, 'name' => 'Other' ];
 	}
 
 	/**
@@ -352,5 +396,120 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+	}
+
+	/**
+	 * Fetches country statistics for the admin UI.
+	 */
+	public static function get_country_stats( $days = 7, $limit = 30 ) {
+		global $wpdb;
+		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					country_code,
+					COUNT(id) as views,
+					SUM(is_unique) as visitors
+				FROM {$wpdb->prefix}sa_pageviews
+				WHERE recorded_at >= %s
+				  AND device_type NOT IN (4, 5)
+				  AND country_code IS NOT NULL
+				  AND country_code != ''
+				GROUP BY country_code
+				ORDER BY visitors DESC
+				LIMIT %d",
+				$date_from,
+				$limit
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Fetches browser statistics for the admin UI.
+	 */
+	public static function get_browser_stats( $days = 7, $limit = 20 ) {
+		global $wpdb;
+		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					a.agent_value as browser,
+					COUNT(pv.id) as views,
+					SUM(pv.is_unique) as visitors
+				FROM {$wpdb->prefix}sa_pageviews pv
+				JOIN {$wpdb->prefix}sa_agents a ON pv.agent_id = a.id
+				WHERE pv.recorded_at >= %s
+				  AND pv.device_type NOT IN (4, 5)
+				GROUP BY pv.agent_id
+				ORDER BY visitors DESC
+				LIMIT %d",
+				$date_from,
+				$limit
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Fetches device type statistics for the admin UI.
+	 */
+	public static function get_device_stats( $days = 7 ) {
+		global $wpdb;
+		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					device_type,
+					COUNT(id) as views,
+					SUM(is_unique) as visitors
+				FROM {$wpdb->prefix}sa_pageviews
+				WHERE recorded_at >= %s
+				  AND device_type NOT IN (4, 5)
+				GROUP BY device_type
+				ORDER BY visitors DESC",
+				$date_from
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Get country name from ISO code.
+	 */
+	public static function get_country_name( $code ) {
+		$countries = [
+			'AF' => 'Afghanistan', 'AL' => 'Albania', 'DZ' => 'Algeria', 'AR' => 'Argentina',
+			'AU' => 'Australia', 'AT' => 'Austria', 'BE' => 'Belgium', 'BR' => 'Brazil',
+			'BG' => 'Bulgaria', 'CA' => 'Canada', 'CL' => 'Chile', 'CN' => 'China',
+			'CO' => 'Colombia', 'HR' => 'Croatia', 'CZ' => 'Czechia', 'DK' => 'Denmark',
+			'EG' => 'Egypt', 'EE' => 'Estonia', 'FI' => 'Finland', 'FR' => 'France',
+			'DE' => 'Germany', 'GR' => 'Greece', 'HK' => 'Hong Kong', 'HU' => 'Hungary',
+			'IN' => 'India', 'ID' => 'Indonesia', 'IE' => 'Ireland', 'IL' => 'Israel',
+			'IT' => 'Italy', 'JP' => 'Japan', 'KR' => 'South Korea', 'LV' => 'Latvia',
+			'LT' => 'Lithuania', 'MY' => 'Malaysia', 'MX' => 'Mexico', 'NL' => 'Netherlands',
+			'NZ' => 'New Zealand', 'NO' => 'Norway', 'PK' => 'Pakistan', 'PH' => 'Philippines',
+			'PL' => 'Poland', 'PT' => 'Portugal', 'RO' => 'Romania', 'RU' => 'Russia',
+			'SA' => 'Saudi Arabia', 'SG' => 'Singapore', 'SK' => 'Slovakia', 'SI' => 'Slovenia',
+			'ZA' => 'South Africa', 'ES' => 'Spain', 'SE' => 'Sweden', 'CH' => 'Switzerland',
+			'TW' => 'Taiwan', 'TH' => 'Thailand', 'TR' => 'Turkey', 'UA' => 'Ukraine',
+			'AE' => 'UAE', 'GB' => 'United Kingdom', 'US' => 'United States', 'VN' => 'Vietnam',
+		];
+		return $countries[ strtoupper( $code ) ] ?? $code;
+	}
+
+	/**
+	 * Get device type name.
+	 */
+	public static function get_device_name( $type ) {
+		$devices = [
+			1 => 'Desktop',
+			2 => 'Mobile',
+			3 => 'Tablet',
+		];
+		return $devices[ (int) $type ] ?? 'Unknown';
 	}
 }

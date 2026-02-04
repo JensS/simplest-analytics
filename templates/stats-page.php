@@ -64,6 +64,8 @@ $max_visitors = max(array_column($daily_stats, 'visitors') ?: [1]);
         <a href="?page=the-simplest-analytics&tab=pages&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'pages' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Top Pages', 'the-simplest-analytics'); ?></a>
         <a href="?page=the-simplest-analytics&tab=referrers&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'referrers' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Referrers', 'the-simplest-analytics'); ?></a>
         <a href="?page=the-simplest-analytics&tab=campaigns&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'campaigns' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Campaigns', 'the-simplest-analytics'); ?></a>
+        <a href="?page=the-simplest-analytics&tab=countries&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'countries' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Countries', 'the-simplest-analytics'); ?></a>
+        <a href="?page=the-simplest-analytics&tab=browsers&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'browsers' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Browsers', 'the-simplest-analytics'); ?></a>
         <a href="?page=the-simplest-analytics&tab=bots&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'bots' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Crawlers & AI', 'the-simplest-analytics'); ?></a>
         <a href="?page=the-simplest-analytics&tab=settings&period=<?php echo esc_attr($period); ?>" class="nav-tab <?php echo $tab === 'settings' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e('Settings', 'the-simplest-analytics'); ?></a>
     </h2>
@@ -83,6 +85,12 @@ $max_visitors = max(array_column($daily_stats, 'visitors') ?: [1]);
                 break;
             case 'campaigns':
                 include SA_PLUGIN_DIR . 'templates/partials/campaigns-table.php';
+                break;
+            case 'countries':
+                include SA_PLUGIN_DIR . 'templates/partials/countries-table.php';
+                break;
+            case 'browsers':
+                include SA_PLUGIN_DIR . 'templates/partials/browsers-table.php';
                 break;
             case 'pages':
             default:

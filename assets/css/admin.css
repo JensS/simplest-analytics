@@ -185,3 +185,121 @@
         display: none;
     }
 }
+
+/* Horizontal Bar Charts in Tables */
+.sa-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 150px;
+}
+
+.sa-bar {
+    height: 20px;
+    background: linear-gradient(90deg, #2271b1 0%, #135e96 100%);
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.sa-bar-blue {
+    background: linear-gradient(90deg, #2271b1 0%, #135e96 100%);
+}
+
+.sa-bar-value {
+    font-weight: 600;
+    color: #1d2327;
+    white-space: nowrap;
+    min-width: 40px;
+}
+
+/* Country Table Styles */
+.sa-country-flag {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.sa-country-code {
+    color: #646970;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+/* Browser Table Styles */
+.sa-browser-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+/* Two-Column Layout */
+.sa-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.sa-column h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: #1d2327;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Device Chart Styles */
+.sa-device-chart {
+    margin-bottom: 20px;
+}
+
+.sa-device-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.sa-device-info {
+    display: flex;
+    align-items: center;
+    min-width: 100px;
+}
+
+.sa-device-icon {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.sa-device-name {
+    font-weight: 500;
+    color: #1d2327;
+}
+
+.sa-device-bar-wrap {
+    flex: 1;
+    height: 24px;
+    background: #f0f0f1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sa-device-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00a32a 0%, #008a20 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.sa-device-percent {
+    min-width: 50px;
+    text-align: right;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+/* Responsive two-column layout */
+@media (max-width: 1200px) {
+    .sa-two-columns {
+        grid-template-columns: 1fr;
+    }
+}
