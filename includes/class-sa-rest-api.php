@@ -75,19 +75,28 @@ class SA_REST_API {
         // Extract UTM params from the path before sanitizing it further
         $utm = self::extract_utm_from_path($full_path);
 
+        // Deduplication: Check if we recently tracked this visitor on this path.
+        // This prevents duplicates if both server-side and JS fire due to timing issues.
+        $anon_ip = self::get_anonymized_ip();
+        $clean_path = self::sanitize_path($full_path);
+        $dedup_key = 'sa_dedup_' . md5($anon_ip . $ua . $clean_path);
+
+        if (get_transient($dedup_key)) {
+            return new WP_REST_Response(['tracked' => false, 'reason' => 'duplicate'], 200);
+        }
+
+        // Set short-lived dedup marker (30 seconds)
+        set_transient($dedup_key, 1, 30);
+
         // Process data similarly to the server-side tracker.
         $data = [
-            'path'         => self::sanitize_path($full_path),
+            'path'         => $clean_path,
             'referrer'     => self::get_referrer_domain($referrer),
             'user_agent'   => $ua,
-            'ip'           => self::get_anonymized_ip(),
+            'ip'           => $anon_ip,
             'is_unique'    => self::check_is_unique($ua),
             'recorded_at'  => current_time('mysql'),
             'pageview_id'  => $pageview_id,
-            'user_agent'   => $ua,
-            'ip'           => self::get_anonymized_ip(),
-            'is_unique'    => self::check_is_unique($ua),
-            'recorded_at'  => current_time('mysql'),
             'utm_source'   => $utm['source'],
             'utm_medium'   => $utm['medium'],
             'utm_campaign' => $utm['campaign'],

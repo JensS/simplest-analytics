@@ -25,15 +25,31 @@ class SA_Tracker {
 			return;
 		}
 
-		$pageview_id = wp_generate_uuid4();
 		$data = self::collect_request_data();
+
+		// Deduplication: Check if we recently tracked this visitor on this path.
+		// Prevents duplicates if page is somehow processed twice.
+		$dedup_key = 'sa_dedup_' . md5( $data['ip'] . $data['user_agent'] . $data['path'] );
+
+		if ( get_transient( $dedup_key ) ) {
+			return;
+		}
+
+		// Set short-lived dedup marker (30 seconds)
+		set_transient( $dedup_key, 1, 30 );
+
+		$pageview_id = wp_generate_uuid4();
 		$data['pageview_id'] = $pageview_id;
 
 		$inserted = SA_Database::insert_pageview( $data );
 
 		if ( $inserted ) {
-			add_action( 'wp_footer', function() use ( $pageview_id ) {
-				echo '<script>window.sa_tracked = true; window.sa_pageview_id = "' . esc_js( $pageview_id ) . '";</script>';
+			// Use timestamp signature instead of boolean to detect cached pages.
+			// JS will check if this timestamp is fresh (within 10 seconds).
+			// If stale, the page is cached and JS should track.
+			$request_sig = time();
+			add_action( 'wp_footer', function() use ( $pageview_id, $request_sig ) {
+				echo '<script>window.sa_sig=' . $request_sig . ';window.sa_pageview_id="' . esc_js( $pageview_id ) . '";</script>';
 			}, 1 ); // Run very early in footer to ensure JS can see it.
 		}
 	}

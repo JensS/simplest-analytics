@@ -4,7 +4,7 @@ Tags: analytics, privacy, statistics, GDPR, pageviews
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,12 @@ No. The tracking JavaScript is under 1KB and loads asynchronously. Server-side t
 
 == Changelog ==
 
+= 1.3.1 =
+* Fixed tracking on cached pages - pages served from PHP-level cache now correctly tracked via JS fallback
+* Added deduplication to prevent duplicate pageviews within 30-second window
+* Changed cache detection from boolean flag to timestamp-based signature
+* Fixed duplicate array keys in REST API data handling
+
 = 1.3.0 =
 * Added time-on-page tracking with session duration
 * Added pageview identifiers for accurate session tracking
@@ -133,6 +139,9 @@ No. The tracking JavaScript is under 1KB and loads asynchronously. Server-side t
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.3.1 =
+Important bugfix for sites using page caching. Ensures all visitors are tracked without duplicates.
 
 = 1.3.0 =
 Feature release adding time-on-page tracking and performance improvements through caching.
