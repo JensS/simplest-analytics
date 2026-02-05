@@ -90,10 +90,29 @@ class SA_Admin {
     }
 
     /**
+     * Clear all plugin-related transients.
+     */
+    public static function clear_transients() {
+        global $wpdb;
+
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_sa\_%'"
+        );
+    }
+
+    /**
      * Fetch overview statistics from the normalized database.
      */
     public static function get_overview_stats( $days ) {
         global $wpdb;
+
+        $transient_key = 'sa_overview_' . $days . 'd';
+        $cached_stats = get_transient( $transient_key );
+
+        if ( false !== $cached_stats ) {
+            return $cached_stats;
+        }
+
         $table     = $wpdb->prefix . 'sa_pageviews';
         $date_from = date( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
@@ -107,6 +126,10 @@ class SA_Admin {
             $date_from
         ), ARRAY_A );
 
-        return $results ?: [ 'pageviews' => 0, 'visitors' => 0, 'bots' => 0 ];
+        $stats = $results ?: [ 'pageviews' => 0, 'visitors' => 0, 'bots' => 0 ];
+
+        set_transient( $transient_key, $stats, HOUR_IN_SECONDS );
+
+        return $stats;
     }
 }

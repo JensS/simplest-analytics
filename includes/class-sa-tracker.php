@@ -25,11 +25,16 @@ class SA_Tracker {
 			return;
 		}
 
+		$pageview_id = wp_generate_uuid4();
 		$data = self::collect_request_data();
+		$data['pageview_id'] = $pageview_id;
+
 		$inserted = SA_Database::insert_pageview( $data );
 
 		if ( $inserted ) {
-			self::$tracked = true;
+			add_action( 'wp_footer', function() use ( $pageview_id ) {
+				echo '<script>window.sa_tracked = true; window.sa_pageview_id = "' . esc_js( $pageview_id ) . '";</script>';
+			}, 1 ); // Run very early in footer to ensure JS can see it.
 		}
 	}
 
@@ -42,16 +47,12 @@ class SA_Tracker {
 			return;
 		}
 
-		// If server-side already tracked this request, don't load JS at all
-		if ( self::$tracked ) {
-			return;
-		}
-
-		wp_enqueue_script( 'sa-tracker', SA_PLUGIN_URL . 'assets/js/tracker.js', [], SA_VERSION, false );
+		wp_register_script( 'sa-tracker', SA_PLUGIN_URL . 'assets/js/tracker.js', [], SA_VERSION, false );
 
 		wp_localize_script( 'sa-tracker', 'sa_params', [
 			'api_url' => get_rest_url( null, 'sa/v1/track' ),
 		] );
+		wp_enqueue_script( 'sa-tracker' );
 	}
 
 	/**

@@ -4,7 +4,7 @@
  */
 defined('ABSPATH') || exit;
 
-// Handle form submission
+// Handle settings form submission
 if (isset($_POST['sa_save_settings']) && check_admin_referer('sa_settings_nonce', 'sa_nonce')) {
     update_option('sa_tracking_enabled', isset($_POST['sa_tracking_enabled']));
     update_option('sa_retention_days', absint($_POST['sa_retention_days']));
@@ -13,6 +13,15 @@ if (isset($_POST['sa_save_settings']) && check_admin_referer('sa_settings_nonce'
     update_option('sa_enable_geo', isset($_POST['sa_enable_geo']));
 
     echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Settings saved.', 'the-simplest-analytics') . '</p></div>';
+
+    // Clear cache on settings save
+    SA_Admin::clear_transients();
+}
+
+// Handle cache clearing
+if (isset($_POST['sa_clear_cache']) && check_admin_referer('sa_cache_nonce', 'sa_cache_field')) {
+    SA_Admin::clear_transients();
+    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Statistics cache cleared.', 'the-simplest-analytics') . '</p></div>';
 }
 
 // Get current settings
@@ -77,7 +86,7 @@ $geo_db_updated = get_option('sa_geo_db_updated', '');
                         <?php
                         printf(
                             /* translators: %s: date of last update */
-                            esc_html__('Geo database last updated: %s', 'the-simplest-analytics'),
+                            esc_html__('The GeoIP database was last updated on %s.', 'the-simplest-analytics'),
                             esc_html($geo_db_updated)
                         );
                         ?>
@@ -92,7 +101,18 @@ $geo_db_updated = get_option('sa_geo_db_updated', '');
 
 <hr>
 
+<h3><?php esc_html_e('Cache Management', 'the-simplest-analytics'); ?></h3>
+<p class="description">
+    <?php esc_html_e('Statistics are cached for one hour to improve performance. You can manually clear the cache here.', 'the-simplest-analytics'); ?>
+</p>
+<form method="post" action="">
+    <?php wp_nonce_field('sa_cache_nonce', 'sa_cache_field'); ?>
+    <?php submit_button(__('Clear Stats Cache', 'the-simplest-analytics'), 'secondary', 'sa_clear_cache'); ?>
+</form>
+
+<hr>
+
 <h3><?php esc_html_e('Data Management', 'the-simplest-analytics'); ?></h3>
 <p class="description">
-    <?php esc_html_e('Database tables will be retained when the plugin is deactivated. To completely remove all data, delete the plugin.', 'the-simplest-analytics'); ?>
+    <?php esc_html_e('Database tables will be retained when the plugin is deactivated. To completely remove all data, delete the plugin from the Plugins screen.', 'the-simplest-analytics'); ?>
 </p>

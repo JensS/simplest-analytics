@@ -57,6 +57,7 @@ class SA_Database {
 		$sql_pageviews = "CREATE TABLE {$wpdb->prefix}sa_pageviews (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			recorded_at DATETIME NOT NULL,
+			pageview_id VARCHAR(32) DEFAULT NULL,
 			path_id BIGINT UNSIGNED NOT NULL,
 			ref_id BIGINT UNSIGNED DEFAULT NULL,
 			agent_id BIGINT UNSIGNED NOT NULL,
@@ -64,9 +65,11 @@ class SA_Database {
 			country_code CHAR(2) DEFAULT NULL,
 			device_type TINYINT NOT NULL,
 			is_unique TINYINT(1) NOT NULL DEFAULT 1,
+			duration_seconds SMALLINT UNSIGNED NOT NULL DEFAULT 0,
 			PRIMARY KEY (id),
 			KEY idx_recorded_at (recorded_at),
-			KEY idx_campaign (campaign_id)
+			KEY idx_campaign (campaign_id),
+			KEY idx_pageview_id (pageview_id)
 		) $charset_collate;";
 
 		dbDelta( $sql_paths );
@@ -106,13 +109,14 @@ class SA_Database {
 		// 5. Final Insert
 		$insert_data = [
 			'recorded_at'  => $data['recorded_at'],
+			'pageview_id'  => $data['pageview_id'] ?? null,
 			'path_id'      => $path_id,
 			'agent_id'     => $agent_id,
 			'country_code' => $country_code,
 			'device_type'  => $ua_info['type'],
 			'is_unique'    => $data['is_unique'],
 		];
-		$format = [ '%s', '%d', '%d', '%s', '%d', '%d' ];
+		$format = [ '%s', '%s', '%d', '%d', '%s', '%d', '%d' ];
 
 		if ( $ref_id !== null ) {
 			$insert_data['ref_id'] = $ref_id;
@@ -265,18 +269,46 @@ class SA_Database {
 	}
 
 	/**
+	 * Updates the duration for a given pageview.
+	 */
+	public static function update_duration( $pageview_id, $duration ) {
+		global $wpdb;
+
+		if ( empty( $pageview_id ) || $duration < 0 ) {
+			return false;
+		}
+
+		return $wpdb->update(
+			$wpdb->prefix . 'sa_pageviews',
+			[ 'duration_seconds' => absint( $duration ) ],
+			[ 'pageview_id' => $pageview_id ],
+			[ '%d' ],
+			[ '%s' ]
+		);
+	}
+
+	/**
 	 * Fetches top performing pages for the admin UI.
 	 */
 	public static function get_top_pages( $days = 7, $limit = 20 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_top_pages_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					p.path_value as path,
 					COUNT(pv.id) as views,
-					SUM(pv.is_unique) as visitors
+					SUM(pv.is_unique) as visitors,
+					AVG(NULLIF(pv.duration_seconds, 0)) as avg_duration
 				FROM {$wpdb->prefix}sa_pageviews pv
 				JOIN {$wpdb->prefix}sa_paths p ON pv.path_id = p.id
 				WHERE pv.recorded_at >= %s
@@ -289,6 +321,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -296,9 +332,17 @@ class SA_Database {
 	 */
 	public static function get_top_referrers( $days = 7, $limit = 20 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_top_referrers_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					r.ref_value as referrer,
@@ -316,6 +360,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -323,9 +371,17 @@ class SA_Database {
 	 */
 	public static function get_bot_stats( $days = 7, $limit = 20 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_bot_stats_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					a.agent_value as agent,
@@ -343,6 +399,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -350,9 +410,17 @@ class SA_Database {
 	 */
 	public static function get_campaign_stats( $days = 7, $limit = 20 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_campaign_stats_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					c.utm_source,
@@ -372,6 +440,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -379,9 +451,17 @@ class SA_Database {
 	 */
 	public static function get_daily_stats( $days = 7 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_daily_stats_' . $days . 'd';
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					DATE(recorded_at) as date,
@@ -396,6 +476,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -403,9 +487,17 @@ class SA_Database {
 	 */
 	public static function get_country_stats( $days = 7, $limit = 30 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_country_stats_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					country_code,
@@ -424,6 +516,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -431,9 +527,17 @@ class SA_Database {
 	 */
 	public static function get_browser_stats( $days = 7, $limit = 20 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_browser_stats_' . $days . 'd_' . $limit;
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					a.agent_value as browser,
@@ -451,6 +555,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**
@@ -458,9 +566,17 @@ class SA_Database {
 	 */
 	public static function get_device_stats( $days = 7 ) {
 		global $wpdb;
+
+		$transient_key = 'sa_device_stats_' . $days . 'd';
+		$cached_data = get_transient( $transient_key );
+
+		if ( false !== $cached_data ) {
+			return $cached_data;
+		}
+
 		$date_from = gmdate( 'Y-m-d H:i:s', strtotime( "-$days days" ) );
 
-		return $wpdb->get_results(
+		$results = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
 					device_type,
@@ -475,6 +591,10 @@ class SA_Database {
 			),
 			ARRAY_A
 		);
+
+		set_transient( $transient_key, $results, HOUR_IN_SECONDS );
+
+		return $results;
 	}
 
 	/**

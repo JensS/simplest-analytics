@@ -19,6 +19,30 @@ class SA_REST_API {
             'callback'            => [__CLASS__, 'handle_track_ping'],
             'permission_callback' => '__return_true', // Public endpoint for tracking
         ]);
+
+        register_rest_route('sa/v1', '/duration', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle_duration_ping'],
+            'permission_callback' => '__return_true', // Public endpoint for tracking
+        ]);
+    }
+
+    /**
+     * Handle the duration update ping from the JS tracker.
+     */
+    public static function handle_duration_ping(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+
+        $pageview_id = isset($params['pageview_id']) ? sanitize_text_field($params['pageview_id']) : null;
+        $duration    = isset($params['duration']) ? absint($params['duration']) : 0;
+
+        if (empty($pageview_id) || $duration <= 0) {
+            return new WP_REST_Response(['updated' => false, 'reason' => 'invalid_payload'], 400);
+        }
+
+        $updated = SA_Database::update_duration($pageview_id, $duration);
+
+        return new WP_REST_Response(['updated' => (bool) $updated], 200);
     }
 
     /**
@@ -41,18 +65,25 @@ class SA_REST_API {
 
         set_transient($rate_key, $requests + 1, MINUTE_IN_SECONDS);
 
-        // Extract parameters sent from tracker.js.
-        $params = $request->get_json_params();
-        $ua = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
-        $full_path = $params['path'] ?? '/';
+        // Extract and sanitize parameters sent from tracker.js.
+        $params    = $request->get_json_params();
+        $full_path = isset($params['path']) ? sanitize_text_field($params['path']) : '/';
+        $referrer  = isset($params['ref']) ? esc_url_raw($params['ref']) : '';
+        $pageview_id = isset($params['pageview_id']) ? sanitize_text_field($params['pageview_id']) : null;
+        $ua        = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
 
-        // Extract UTM params from the path before sanitizing
+        // Extract UTM params from the path before sanitizing it further
         $utm = self::extract_utm_from_path($full_path);
 
         // Process data similarly to the server-side tracker.
         $data = [
             'path'         => self::sanitize_path($full_path),
-            'referrer'     => self::get_referrer_domain($params['ref'] ?? ''),
+            'referrer'     => self::get_referrer_domain($referrer),
+            'user_agent'   => $ua,
+            'ip'           => self::get_anonymized_ip(),
+            'is_unique'    => self::check_is_unique($ua),
+            'recorded_at'  => current_time('mysql'),
+            'pageview_id'  => $pageview_id,
             'user_agent'   => $ua,
             'ip'           => self::get_anonymized_ip(),
             'is_unique'    => self::check_is_unique($ua),
@@ -71,15 +102,7 @@ class SA_REST_API {
      * Get client IP address.
      */
     private static function get_client_ip() {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-
-        // Check for proxy headers (trusted environments only)
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $forwarded = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-            $ip = trim($forwarded[0]);
-        }
-
-        return $ip;
+        return $_SERVER['REMOTE_ADDR'] ?? '';
     }
 
     /**
